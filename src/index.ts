@@ -252,6 +252,9 @@ app.get('/app/1', (c) => {
         .fc-daygrid-day:hover {
             background-color: rgba(255, 255, 255, 0.1) !important;
         }
+        .fc-toolbar-title {
+            color: white !important;
+        }
     </style>
 </head>
 <body>

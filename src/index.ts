@@ -141,6 +141,51 @@ app.get('/', (c) => {
 </html>`)
 })
 
+app.get('/app', (c) => {
+  return c.html(`<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>App</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #FF4B3A;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .loader {
+            width: 50px;
+            height: 50px;
+            border: 5px solid #ffffff;
+            border-top: 5px solid transparent;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="loader"></div>
+    <script>
+        const delay = Math.random() * 500 + 700;
+        setTimeout(() => {
+            window.location.href = '/app/setup';
+        }, delay);
+    </script>
+</body>
+</html>`)
+})
+
 app.get("/api/wishes", (c) => c.json(listWishes()))
 
 app.post("/api/wishes", async (c) => {

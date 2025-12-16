@@ -218,11 +218,33 @@ app.get('/app/1', (c) => {
         body {
             font-family: 'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
-        .calendar-container {
+        .app-container {
+            display: flex;
+            min-height: 100vh;
+        }
+        .sidebar {
+            width: 300px;
+            background: rgba(255, 255, 255, 0.1);
+            border-right: 2px solid rgba(255, 255, 255, 0.3);
+            padding: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+        }
+        .select-food {
+            font-family: 'SF Pro Rounded';
+            font-style: normal;
+            font-weight: 800;
+            font-size: 32px;
+            line-height: 86.84%;
+            letter-spacing: -0.03em;
+            color: #FFFFFF;
+            margin-bottom: 20px;
+        }
+        .main-content {
+            flex: 1;
             display: flex;
             justify-content: center;
             align-items: center;
-            min-height: 100vh;
             padding: 20px;
         }
         #calendar {
@@ -258,8 +280,13 @@ app.get('/app/1', (c) => {
     </style>
 </head>
 <body>
-    <div class="calendar-container">
-        <div id='calendar'></div>
+    <div class="app-container">
+        <div class="sidebar">
+            <div class="select-food">Select Food</div>
+        </div>
+        <div class="main-content">
+            <div id='calendar'></div>
+        </div>
     </div>
     <script>
         document.addEventListener('DOMContentLoaded', function() {

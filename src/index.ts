@@ -134,7 +134,7 @@ app.get('/', (c) => {
     <img src="/burger.png" alt="Burger" class="burger-image">
     <img src="/hotdog.png" alt="Hotdog" class="hotdog-image">
     <img src="/pizza.png" alt="Pizza" class="pizza-image">
-    <button class="rectangle-btn">
+    <button class="rectangle-btn" onclick="window.location.href='/app'">
         <span class="get-started-text">Get Started</span>
     </button>
 </body>

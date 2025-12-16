@@ -267,6 +267,32 @@ app.get('/app/setup', (c) => {
             font-size: 18px;
             color: #FFFFFF;
         }
+
+        .notification {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #FFFFFF;
+            color: #FF460A;
+            padding: 16px 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            font-family: 'SF Pro Text';
+            font-weight: 600;
+            font-size: 16px;
+            display: none;
+            z-index: 1000;
+            max-width: 280px;
+        }
+
+        .notification.show {
+            display: block;
+        }
+
+        .notification.fade-out {
+            opacity: 0;
+            transition: opacity 0.3s ease-out;
+        }
     </style>
 </head>
 <body class="flex flex-col items-center min-h-screen">
@@ -287,10 +313,41 @@ app.get('/app/setup', (c) => {
         <span class="get-started-text">Next</span>
     </button>
 
+    <div class="notification" id="selection-notification" onclick="dismissNotification()">
+        Tap Lunch or Dinner to select them.
+    </div>
+
     <script>
+        let notificationTimeout;
+        let autoDismissTimeout;
+
+        function showNotification() {
+            const notification = document.getElementById('selection-notification');
+            notification.classList.add('show');
+            autoDismissTimeout = setTimeout(() => {
+                dismissNotification();
+            }, 25000); // Auto-dismiss after 25 seconds
+        }
+
+        function dismissNotification() {
+            const notification = document.getElementById('selection-notification');
+            notification.classList.add('fade-out');
+            clearTimeout(autoDismissTimeout);
+            setTimeout(() => {
+                notification.classList.remove('show', 'fade-out');
+            }, 300);
+        }
+
+        // Set timeout to show notification after 5 seconds
+        notificationTimeout = setTimeout(() => {
+            showNotification();
+        }, 5000);
+
         document.querySelectorAll('.meal-option').forEach(option => {
             option.addEventListener('click', function() {
                 this.classList.toggle('selected');
+                // Clear the notification timeout since user made a selection
+                clearTimeout(notificationTimeout);
             });
         });
     </script>

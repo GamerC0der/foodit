@@ -186,6 +186,112 @@ app.get('/app', (c) => {
 </html>`)
 })
 
+app.get('/app/setup', (c) => {
+  return c.html(`<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Setup</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-color: #FF4B3A;
+            min-height: 100vh;
+        }
+
+        input[type="checkbox"] {
+            position: relative;
+            appearance: none;
+        }
+
+        .meal-option.selected {
+            background: #FFFFFF !important;
+            color: #FF460A;
+        }
+
+        .meal-option.selected span {
+            color: #FF460A;
+        }
+
+        .rectangle-btn {
+            position: absolute;
+            width: 314px;
+            height: 70px;
+            left: 50%;
+            transform: translateX(-50%);
+            bottom: 50px;
+            background: #FFFFFF;
+            border-radius: 30px;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .get-started-text {
+            font-family: 'SF Pro Text';
+            font-style: normal;
+            font-weight: 600;
+            font-size: 17px;
+            line-height: 20px;
+            color: #FF460A;
+            pointer-events: none;
+        }
+
+        .setup-text {
+            font-family: 'SF Pro Rounded';
+            font-style: normal;
+            font-weight: 800;
+            font-size: 65px;
+            line-height: 86.84%;
+            letter-spacing: -0.03em;
+            color: #FFFFFF;
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .meals-text {
+            font-family: 'SF Pro Text';
+            font-style: normal;
+            font-weight: 600;
+            font-size: 18px;
+            color: #FFFFFF;
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen">
+    <div class="setup-text">Setup</div>
+
+    <div class="flex flex-col items-center gap-6">
+        <div class="meals-text">Meals</div>
+
+        <div class="flex flex-col gap-4">
+            <div class="meal-option flex items-center justify-center p-12 bg-white/20 rounded-xl cursor-pointer hover:bg-white/30 transition-all" data-meal="lunch">
+                <span class="text-white font-medium text-4xl">Lunch</span>
+            </div>
+            <div class="meal-option flex items-center justify-center p-12 bg-white/20 rounded-xl cursor-pointer hover:bg-white/30 transition-all" data-meal="dinner">
+                <span class="text-white font-medium text-4xl">Dinner</span>
+            </div>
+        </div>
+    </div>
+
+    <button class="rectangle-btn">
+        <span class="get-started-text">Next</span>
+    </button>
+
+    <script>
+        document.querySelectorAll('.meal-option').forEach(option => {
+            option.addEventListener('click', function() {
+                this.classList.toggle('selected');
+            });
+        });
+    </script>
+</body>
+</html>`)
+})
+
 app.get("/api/wishes", (c) => c.json(listWishes()))
 
 app.post("/api/wishes", async (c) => {

@@ -249,7 +249,15 @@ app.get('/app/setup', (c) => {
             letter-spacing: -0.03em;
             color: #FFFFFF;
             text-align: center;
+            margin-top: 100px;
             margin-bottom: 40px;
+        }
+
+        .meal-selector {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
         }
 
         .meals-text {
@@ -261,12 +269,10 @@ app.get('/app/setup', (c) => {
         }
     </style>
 </head>
-<body class="flex flex-col items-center justify-center min-h-screen">
+<body class="flex flex-col items-center min-h-screen">
     <div class="setup-text">Setup</div>
 
-    <div class="flex flex-col items-center gap-6">
-        <div class="meals-text">Meals</div>
-
+    <div class="meal-selector">
         <div class="flex flex-col gap-4">
             <div class="meal-option flex items-center justify-center p-12 bg-white/20 rounded-xl cursor-pointer hover:bg-white/30 transition-all" data-meal="lunch">
                 <span class="text-white font-medium text-4xl">Lunch</span>

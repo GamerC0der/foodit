@@ -3,6 +3,15 @@ import { createWish, deleteWish, fulfillWish, listWishes } from "./db/queries"
 
 const app = new Hono()
 
+app.get('/style.css', async (c) => {
+  const css = await Bun.file('./style.css')
+  return c.body(await css.arrayBuffer(), {
+    headers: {
+      'Content-Type': 'text/css',
+    },
+  })
+})
+
 app.get('/burger.png', async (c) => {
   const image = await Bun.file('./burger.png')
   return c.body(await image.arrayBuffer(), {
@@ -37,97 +46,7 @@ app.get('/', (c) => {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Food for Thought</title>
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            background-color: #FF4B3A;
-            height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: flex-start;
-            padding-top: 25vh;
-        }
-
-        .food-for-thought {
-            font-family: 'SF Pro Rounded';
-            font-style: normal;
-            font-weight: 800;
-            font-size: 65px;
-            line-height: 86.84%;
-            letter-spacing: -0.03em;
-            color: #FFFFFF;
-            text-align: center;
-        }
-
-        .rectangle-btn {
-            position: absolute;
-            width: 314px;
-            height: 70px;
-            left: 50%;
-            transform: translateX(-50%);
-            bottom: 50px;
-            background: #FFFFFF;
-            border-radius: 30px;
-            border: none;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .get-started-text {
-            font-family: 'SF Pro Text';
-            font-style: normal;
-            font-weight: 600;
-            font-size: 17px;
-            line-height: 20px;
-            color: #FF460A;
-            pointer-events: none;
-        }
-
-        .burger-image {
-            position: absolute;
-            left: 50%;
-            top: 50%;
-            transform: translate(-50%, -50%);
-            max-width: 300px;
-            max-height: 300px;
-            transition: transform 0.3s ease;
-        }
-
-        .burger-image:hover {
-            transform: translate(-50%, -60%);
-        }
-
-        .hotdog-image {
-            position: absolute;
-            left: 40%;
-            top: 60%;
-            transform: translate(-50%, -50%);
-            max-width: 200px;
-            max-height: 200px;
-            transition: transform 0.3s ease;
-        }
-
-        .hotdog-image:hover {
-            transform: translate(-50%, -60%);
-        }
-
-        .pizza-image {
-            position: absolute;
-            left: 60%;
-            top: 60%;
-            transform: translate(-50%, -50%);
-            max-width: 200px;
-            max-height: 200px;
-            transition: transform 0.3s ease;
-        }
-
-        .pizza-image:hover {
-            transform: translate(-50%, -60%);
-        }
-    </style>
+    <link rel="stylesheet" href="/style.css">
 </head>
 <body>
     <div class="food-for-thought">Food for<br>Thought</div>
@@ -148,31 +67,7 @@ app.get('/app', (c) => {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>App</title>
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            background-color: #FF4B3A;
-            height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-
-        .loader {
-            width: 50px;
-            height: 50px;
-            border: 5px solid #ffffff;
-            border-top: 5px solid transparent;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-    </style>
+    <link rel="stylesheet" href="/style.css">
 </head>
 <body>
     <div class="loader"></div>
@@ -194,106 +89,7 @@ app.get('/app/setup', (c) => {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Setup</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        body {
-            background-color: #FF4B3A;
-            min-height: 100vh;
-        }
-
-        input[type="checkbox"] {
-            position: relative;
-            appearance: none;
-        }
-
-        .meal-option.selected {
-            background: #FFFFFF !important;
-            color: #FF460A;
-        }
-
-        .meal-option.selected span {
-            color: #FF460A;
-        }
-
-        .rectangle-btn {
-            position: absolute;
-            width: 314px;
-            height: 70px;
-            left: 50%;
-            transform: translateX(-50%);
-            bottom: 50px;
-            background: #FFFFFF;
-            border-radius: 30px;
-            border: none;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .get-started-text {
-            font-family: 'SF Pro Text';
-            font-style: normal;
-            font-weight: 600;
-            font-size: 17px;
-            line-height: 20px;
-            color: #FF460A;
-            pointer-events: none;
-        }
-
-        .setup-text {
-            font-family: 'SF Pro Rounded';
-            font-style: normal;
-            font-weight: 800;
-            font-size: 65px;
-            line-height: 86.84%;
-            letter-spacing: -0.03em;
-            color: #FFFFFF;
-            text-align: center;
-            margin-top: 100px;
-            margin-bottom: 40px;
-        }
-
-        .meal-selector {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-        }
-
-        .meals-text {
-            font-family: 'SF Pro Text';
-            font-style: normal;
-            font-weight: 600;
-            font-size: 18px;
-            color: #FFFFFF;
-        }
-
-        .notification {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            background: #FFFFFF;
-            color: #FF460A;
-            padding: 16px 20px;
-            border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-            font-family: 'SF Pro Text';
-            font-weight: 600;
-            font-size: 16px;
-            display: none;
-            z-index: 1000;
-            max-width: 280px;
-        }
-
-        .notification.show {
-            display: block;
-        }
-
-        .notification.fade-out {
-            opacity: 0;
-            transition: opacity 0.3s ease-out;
-        }
-    </style>
+    <link rel="stylesheet" href="/style.css">
 </head>
 <body class="flex flex-col items-center min-h-screen">
     <div class="setup-text">Setup</div>
@@ -309,7 +105,7 @@ app.get('/app/setup', (c) => {
         </div>
     </div>
 
-    <button class="rectangle-btn">
+    <button class="rectangle-btn" onclick="window.location.href='/app/location'">
         <span class="get-started-text">Next</span>
     </button>
 
@@ -326,7 +122,7 @@ app.get('/app/setup', (c) => {
             notification.classList.add('show');
             autoDismissTimeout = setTimeout(() => {
                 dismissNotification();
-            }, 25000); // Auto-dismiss after 25 seconds
+            }, 25000);
         }
 
         function dismissNotification() {
@@ -338,7 +134,6 @@ app.get('/app/setup', (c) => {
             }, 300);
         }
 
-        // Set timeout to show notification after 5 seconds
         notificationTimeout = setTimeout(() => {
             showNotification();
         }, 5000);
@@ -346,9 +141,59 @@ app.get('/app/setup', (c) => {
         document.querySelectorAll('.meal-option').forEach(option => {
             option.addEventListener('click', function() {
                 this.classList.toggle('selected');
-                // Clear the notification timeout since user made a selection
                 clearTimeout(notificationTimeout);
             });
+        });
+    </script>
+</body>
+</html>`)
+})
+
+app.get('/app/location', (c) => {
+  return c.html(`<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Location</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body class="flex flex-col items-center min-h-screen">
+    <div class="setup-text">Location</div>
+
+    <div class="location-permission">
+        <div class="location-text">Share your location to find food nearby</div>
+        <div class="location-status" id="location-status">Detecting location...</div>
+    </div>
+
+    <button class="rectangle-btn" id="next-btn" style="display: none;">
+        <span class="get-started-text">Next</span>
+    </button>
+
+    <script>
+        async function getLocationByIP() {
+            try {
+                const response = await fetch('http://ip-api.com/json/');
+                const data = await response.json();
+                return data.city || data.regionName || 'Unknown Location';
+            } catch (error) {
+                return 'Location Detection Failed';
+            }
+        }
+
+        async function detectLocation() {
+            const status = document.getElementById('location-status');
+            status.textContent = 'Detecting location...';
+
+            const cityName = await getLocationByIP();
+            status.textContent = cityName;
+            status.classList.add('success');
+            document.getElementById('next-btn').style.display = 'flex';
+        }
+
+        window.addEventListener('load', function() {
+            detectLocation();
         });
     </script>
 </body>

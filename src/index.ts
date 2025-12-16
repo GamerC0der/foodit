@@ -1,5 +1,5 @@
 import { Hono } from "hono"
-import { createWish, deleteWish, fulfillWish, listWishes } from "./db/queries"
+import { createWish, deleteWish, fulfillWish, listWishes, createPlace, deletePlace, listPlaces } from "./db/queries"
 
 const app = new Hono()
 
@@ -230,6 +230,64 @@ app.get('/app/1', (c) => {
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
             backdrop-filter: blur(10px);
         }
+        .restaurant-search {
+            margin-bottom: 20px;
+        }
+        .restaurant-search input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 16px;
+            backdrop-filter: blur(10px);
+        }
+        .restaurant-search input::placeholder {
+            color: rgba(255, 255, 255, 0.7);
+        }
+        .restaurant-search input:focus {
+            outline: none;
+            border-color: rgba(255, 255, 255, 0.5);
+            background: rgba(255, 255, 255, 0.2);
+        }
+        .restaurant-list {
+            flex: 1;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+        .restaurant-item {
+            padding: 12px;
+            margin-bottom: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .restaurant-item:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.4);
+        }
+        .restaurant-item.selected {
+            background: rgba(255, 255, 255, 0.3);
+            border-color: rgba(255, 255, 255, 0.6);
+        }
+        .restaurant-name {
+            font-weight: 600;
+            color: white;
+            font-size: 16px;
+            margin-bottom: 4px;
+        }
+        .restaurant-type {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.8);
+        }
+        .restaurant-rating {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.7);
+            margin-top: 4px;
+        }
         .select-food {
             font-family: 'SF Pro Rounded';
             font-style: normal;
@@ -283,13 +341,169 @@ app.get('/app/1', (c) => {
     <div class="app-container">
         <div class="sidebar">
             <div class="select-food">Select Food</div>
+            <div class="restaurant-search">
+                <input type="text" id="restaurant-search" placeholder="Search restaurants...">
+            </div>
+            <div class="restaurant-list" id="restaurant-list">
+            </div>
+
+            <div class="saved-places-section" style="margin-top: 30px;">
+                <div style="font-size: 18px; font-weight: 600; color: white; margin-bottom: 15px;">Selected Places</div>
+                <div class="saved-places-list" id="saved-places-list">
+                </div>
+            </div>
         </div>
         <div class="main-content">
             <div id='calendar'></div>
         </div>
     </div>
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
+        let restaurants = [];
+        let selectedRestaurant = null;
+
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+
+        async function searchPlaces(query = '') {
+            try {
+                const url = '/api/places/search?q=' + encodeURIComponent(query);
+                const response = await fetch(url);
+                const data = await response.json();
+
+                if (data.error) {
+                    console.error('Search error:', data.error);
+                    return [];
+                }
+
+                return data.suggestions.map((suggestion, index) => ({
+                    id: index + 1,
+                    name: suggestion.title,
+                    subtitle: suggestion.subtitle,
+                    type: suggestion.type,
+                    query: suggestion.query,
+                    thumbnail: suggestion.thumbnail,
+                    rating: 'N/A',
+                    price: 'N/A'
+                }));
+            } catch (error) {
+                console.error('Search error:', error);
+                return [];
+            }
+        }
+
+        function displayRestaurants(restaurantsToShow) {
+            const restaurantList = document.getElementById('restaurant-list');
+            restaurantList.innerHTML = '';
+
+            restaurantsToShow.forEach(restaurant => {
+                const restaurantItem = document.createElement('div');
+                restaurantItem.className = 'restaurant-item';
+                if (selectedRestaurant && selectedRestaurant.id === restaurant.id) {
+                    restaurantItem.className += ' selected';
+                }
+                restaurantItem.onclick = () => selectRestaurant(restaurant);
+
+                restaurantItem.innerHTML =
+                    '<div class="restaurant-name">' + restaurant.name + '</div>' +
+                    '<div class="restaurant-type">' + (restaurant.subtitle || restaurant.type) + '</div>' +
+                    '<div class="restaurant-rating">' +
+                        (restaurant.rating !== 'N/A' ? '⭐ ' + restaurant.rating : '') +
+                        (restaurant.price !== 'N/A' ? ' • ' + restaurant.price : '') +
+                    '</div>';
+
+                restaurantList.appendChild(restaurantItem);
+            });
+        }
+
+        async function selectRestaurant(restaurant) {
+            selectedRestaurant = restaurant;
+            displayRestaurants(restaurants);
+
+            try {
+                const response = await fetch('/api/places', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        title: restaurant.name,
+                        subtitle: restaurant.subtitle,
+                        type: restaurant.type,
+                        query: restaurant.query,
+                        thumbnail: restaurant.thumbnail
+                    })
+                });
+
+                if (response.ok) {
+                    loadSavedPlaces();
+                }
+            } catch (error) {
+            }
+        }
+
+        async function loadSavedPlaces() {
+            try {
+                const response = await fetch('/api/places');
+                const savedPlaces = await response.json();
+
+                const savedPlacesList = document.getElementById('saved-places-list');
+                savedPlacesList.innerHTML = '';
+
+                if (savedPlaces.length === 0) {
+                    savedPlacesList.innerHTML = '<div style="color: rgba(255, 255, 255, 0.7); font-size: 14px;">No places selected yet</div>';
+                    return;
+                }
+
+                savedPlaces.forEach(place => {
+                    const placeItem = document.createElement('div');
+                    placeItem.className = 'restaurant-item';
+                    placeItem.innerHTML =
+                        '<div class="restaurant-name">' + place.title + '</div>' +
+                        '<div class="restaurant-type">' + (place.subtitle || place.type) + '</div>';
+                    savedPlacesList.appendChild(placeItem);
+                });
+            } catch (error) {
+                console.error('Error loading saved places:', error);
+            }
+        }
+
+
+        async function handleSearch() {
+            const searchInput = document.getElementById('restaurant-search');
+            const searchTerm = searchInput.value.trim();
+
+            if (searchTerm.length === 0) {
+                restaurants = await searchPlaces();
+                displayRestaurants(restaurants);
+                return;
+            }
+
+            if (searchTerm.length < 2) {
+                return;
+            }
+
+            restaurants = await searchPlaces(searchTerm);
+            displayRestaurants(restaurants);
+        }
+
+        document.addEventListener('DOMContentLoaded', async function() {
+            restaurants = await searchPlaces();
+
+            const searchInput = document.getElementById('restaurant-search');
+            searchInput.addEventListener('input', debounce(handleSearch, 300));
+
+            displayRestaurants(restaurants);
+            loadSavedPlaces();
+
             var calendarEl = document.getElementById('calendar');
             var calendar = new FullCalendar.Calendar(calendarEl, {
                 initialView: 'dayGridMonth',
@@ -307,6 +521,106 @@ app.get('/app/1', (c) => {
     </script>
 </body>
 </html>`)
+})
+
+async function getLocationByIP() {
+  try {
+    const response = await fetch('http://ip-api.com/json/')
+    const data = await response.json()
+    return {
+      city: data.city || data.regionName || 'Unknown Location',
+      lat: data.lat,
+      lon: data.lon,
+      region: data.regionName,
+      country: data.country
+    }
+  } catch (error) {
+    return { city: 'Mission Viejo, CA', lat: null, lon: null, region: 'CA', country: 'US' }
+  }
+}
+
+app.get("/api/places/search", async (c) => {
+  const prefix = c.req.query('q') || ''
+  if (!prefix.trim()) {
+    return c.json({ suggestions: [] })
+  }
+
+  try {
+    const locationData = await getLocationByIP()
+    const location = locationData.city ? `${locationData.city}, ${locationData.region || ''}`.trim() : 'Mission Viejo, CA'
+
+    const response = await fetch('https://www.yelp.com/gql/batch', {
+      method: 'POST',
+      headers: {
+        'accept': '*/*',
+        'content-type': 'application/json',
+        'origin': 'https://www.yelp.com',
+        'referer': 'https://www.yelp.com/',
+        'x-apollo-operation-name': 'GetSuggestions',
+      },
+      body: JSON.stringify([
+        {
+          operationName: 'GetSuggestions',
+          variables: {
+            capabilities: [],
+            prefix: prefix.trim(),
+            location: location
+          },
+          extensions: {
+            operationType: 'query',
+            documentId: '109c8a7e92ee9b481268cf55e8e21cc8ce753f8bf6453ad42ca7c1652ea0535f'
+          }
+        }
+      ])
+    })
+
+    if (!response.ok) {
+      throw new Error(`Yelp API error: ${response.status}`)
+    }
+
+    const data = await response.json()
+
+    const suggestions = data[0]?.data?.searchSuggestFrontend?.prefetchSuggestions?.suggestions || []
+
+    const transformedSuggestions = suggestions
+      .filter((suggestion: any) => suggestion.type === 'business')
+      .map((suggestion: any) => ({
+        title: suggestion.title,
+        subtitle: suggestion.subtitle,
+        type: suggestion.type,
+        query: suggestion.query,
+        thumbnail: suggestion.thumbnail?.key || null,
+        redirectUrl: suggestion.redirectUrl
+      }))
+
+    return c.json({ suggestions: transformedSuggestions, location })
+
+  } catch (error) {
+    return c.json({ error: 'Failed to search places', suggestions: [] }, 500)
+  }
+})
+
+app.get("/api/places", (c) => c.json(listPlaces()))
+
+app.post("/api/places", async (c) => {
+  const body = await c.req.json().catch(() => null)
+  const { title, subtitle, type, query, thumbnail } = body || {}
+
+  if (!title || !type || !query) {
+    return c.json({ error: "title, type, and query are required" }, 400)
+  }
+
+  return c.json(createPlace(title, subtitle, type, query, thumbnail), 201)
+})
+
+app.delete("/api/places/:id", (c) => {
+  const id = Number(c.req.param("id"))
+  if (!Number.isFinite(id)) return c.json({ error: "bad id" }, 400)
+
+  const res = deletePlace(id)
+  if (res.changes === 0) return c.json({ error: "not found" }, 404)
+
+  return c.json({ ok: true })
 })
 
 app.get("/api/wishes", (c) => c.json(listWishes()))

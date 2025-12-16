@@ -1,5 +1,5 @@
 import { db } from "./index"
-import { wishes } from "./schema"
+import { wishes, places } from "./schema"
 import { eq, desc } from "drizzle-orm"
 
 export function listWishes() {
@@ -29,5 +29,29 @@ export function fulfillWish(id: number) {
 
 export function deleteWish(id: number) {
   const res = db.delete(wishes).where(eq(wishes.id, id)).run()
+  return { changes: res.changes }
+}
+
+export function listPlaces() {
+  return db.select().from(places).orderBy(desc(places.id)).all()
+}
+
+export function createPlace(title: string, subtitle: string | null, type: string, query: string, thumbnail: string | null) {
+  const createdAt = Math.floor(Date.now() / 1000)
+
+  const res = db.insert(places).values({
+    title,
+    subtitle,
+    type,
+    query,
+    thumbnail,
+    createdAt,
+  }).run()
+
+  return { id: Number(res.lastInsertRowid) }
+}
+
+export function deletePlace(id: number) {
+  const res = db.delete(places).where(eq(places.id, id)).run()
   return { changes: res.changes }
 }

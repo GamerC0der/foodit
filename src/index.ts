@@ -61,6 +61,10 @@ app.get('/', (c) => {
 })
 
 app.get('/app', (c) => {
+  const redirect = c.req.query('redirect');
+  const targetUrl = redirect === '1' ? '/app/1' : '/app/setup';
+  const delay = redirect === '1' ? 1500 : Math.random() * 500 + 700;
+
   return c.html(`<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -72,10 +76,9 @@ app.get('/app', (c) => {
 <body>
     <div class="loader"></div>
     <script>
-        const delay = Math.random() * 500 + 700;
         setTimeout(() => {
-            window.location.href = '/app/setup';
-        }, delay);
+            window.location.href = '${targetUrl}';
+        }, ${delay});
     </script>
 </body>
 </html>`)
@@ -167,18 +170,17 @@ app.get('/app/location', (c) => {
         <div class="location-status" id="location-status">Detecting location...</div>
     </div>
 
-    <button class="rectangle-btn" id="next-btn" style="display: none;">
+    <button class="rectangle-btn" id="next-btn" style="display: none;" onclick="window.location.href='/app?redirect=1'">
         <span class="get-started-text">Next</span>
     </button>
-
     <script>
         async function getLocationByIP() {
             try {
                 const response = await fetch('http://ip-api.com/json/');
                 const data = await response.json();
-                return data.city || data.regionName || 'Unknown Location';
+                return { city: data.city || data.regionName || 'Unknown Location', lat: data.lat, lon: data.lon };
             } catch (error) {
-                return 'Location Detection Failed';
+                return { city: 'Location Detection Failed', lat: null, lon: null };
             }
         }
 
@@ -186,14 +188,91 @@ app.get('/app/location', (c) => {
             const status = document.getElementById('location-status');
             status.textContent = 'Detecting location...';
 
-            const cityName = await getLocationByIP();
-            status.textContent = cityName;
+            const locationData = await getLocationByIP();
+            status.textContent = locationData.city;
             status.classList.add('success');
+
+
             document.getElementById('next-btn').style.display = 'flex';
         }
 
         window.addEventListener('load', function() {
             detectLocation();
+        });
+    </script>
+</body>
+</html>`)
+})
+
+app.get('/app/1', (c) => {
+  return c.html(`<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Food for Thought</title>
+    <link rel="stylesheet" href="/style.css">
+    <link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.css' rel='stylesheet' />
+    <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js'></script>
+    <style>
+        body {
+            font-family: 'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        .calendar-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        #calendar {
+            max-width: 900px;
+            width: 100%;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+        }
+        .fc-header-toolbar {
+            margin-bottom: 1em !important;
+        }
+        .fc-button {
+            background: rgba(255, 255, 255, 0.2) !important;
+            border: 1px solid rgba(255, 255, 255, 0.3) !important;
+            color: white !important;
+        }
+        .fc-button:hover {
+            background: rgba(255, 255, 255, 0.3) !important;
+        }
+        .fc-today-button {
+            background: rgba(255, 255, 255, 0.4) !important;
+        }
+        .fc-daygrid-day:hover {
+            background-color: rgba(255, 255, 255, 0.1) !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="calendar-container">
+        <div id='calendar'></div>
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            var calendarEl = document.getElementById('calendar');
+            var calendar = new FullCalendar.Calendar(calendarEl, {
+                initialView: 'dayGridMonth',
+                height: 'auto',
+                headerToolbar: {
+                    left: 'prev,next today',
+                    center: 'title',
+                    right: 'dayGridMonth'
+                },
+                dayMaxEvents: true,
+                moreLinkClick: 'popover'
+            });
+            calendar.render();
         });
     </script>
 </body>
@@ -229,5 +308,6 @@ app.delete("/api/wishes/:id", (c) => {
 
   return c.json({ ok: true })
 })
+
 
 export default app

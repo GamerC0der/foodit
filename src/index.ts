@@ -399,6 +399,7 @@ app.get('/app/1', (c) => {
     <script>
         let restaurants = [];
         let selectedRestaurant = null;
+        let calendar;
 
         function debounce(func, wait) {
             let timeout;
@@ -516,6 +517,9 @@ app.get('/app/1', (c) => {
 
                 if (response.ok) {
                     loadSavedPlaces();
+                    if (calendar) {
+                        calendar.refetchEvents();
+                    }
                 }
             } catch (error) {
             }
@@ -529,6 +533,9 @@ app.get('/app/1', (c) => {
 
                 if (response.ok) {
                     loadSavedPlaces();
+                    if (calendar) {
+                        calendar.refetchEvents();
+                    }
                 } else {
                     console.error('Failed to remove place');
                 }
@@ -558,7 +565,7 @@ app.get('/app/1', (c) => {
                             '<div class="restaurant-name">' + place.title + '</div>' +
                             '<div class="restaurant-type">' + (place.subtitle || place.type) + '</div>' +
                         '</div>' +
-                        '<button class="remove-btn" onclick="removePlace(' + place.id + ')">✕</button>';
+                        '<button class="remove-btn" onclick="removePlace(' + JSON.stringify(place.id) + ')">✕</button>';
                     savedPlacesList.appendChild(placeItem);
                 });
             } catch (error) {
@@ -595,7 +602,7 @@ app.get('/app/1', (c) => {
             loadSavedPlaces();
 
             var calendarEl = document.getElementById('calendar');
-            var calendar = new FullCalendar.Calendar(calendarEl, {
+            calendar = new FullCalendar.Calendar(calendarEl, {
                 initialView: 'dayGridMonth',
                 height: 'auto',
                 headerToolbar: {
@@ -604,7 +611,17 @@ app.get('/app/1', (c) => {
                     right: 'dayGridMonth'
                 },
                 dayMaxEvents: true,
-                moreLinkClick: 'popover'
+                moreLinkClick: 'popover',
+                events: async function(fetchInfo, successCallback, failureCallback) {
+                    try {
+                        const response = await fetch('/api/events');
+                        const events = await response.json();
+                        successCallback(events);
+                    } catch (error) {
+                        console.error('Error loading events:', error);
+                        failureCallback(error);
+                    }
+                }
             });
             calendar.render();
         });
@@ -615,17 +632,17 @@ app.get('/app/1', (c) => {
 
 async function getLocationByIP() {
   try {
-    const response = await fetch('http://ip-api.com/json/')
-    const data = await response.json()
+    const response = await fetch('http://ip-api.com/json/');
+    const data = await response.json();
     return {
       city: data.city || data.regionName || 'Unknown Location',
       lat: data.lat,
       lon: data.lon,
       region: data.regionName,
       country: data.country
-    }
+    };
   } catch (error) {
-    return { city: 'Mission Viejo, CA', lat: null, lon: null, region: 'CA', country: 'US' }
+    return { city: 'Mission Viejo, CA', lat: null, lon: null, region: 'CA', country: 'US' };
   }
 }
 
@@ -637,12 +654,12 @@ app.get("/api/places/search", async (c) => {
 
   try {
     const locationData = await getLocationByIP()
-    const location = locationData.city ? `${locationData.city}, ${locationData.region || ''}`.trim() : 'Mission Viejo, CA'
+    const location = locationData.city ? (locationData.city + ', ' + (locationData.region || '')).trim() : 'Mission Viejo, CA'
 
-    const query = encodeURIComponent(prefix.trim())
+    const query = encodeURIComponent(prefix.trim());
     const pb = '\u00212i13\u00214m12\u00211m3\u00211d21197.432321416414\u00212d-117.7255936\u00213d33.691785749999994\u00212m3\u00211f0\u00212f0\u00213f0\u00213m2\u00211i2005\u00212i1226\u00214f13.1\u00217i20\u002110b1\u002112m25\u00211m5\u002118b1\u002130b1\u002131m1\u00211b1\u002134e1\u00212m4\u00215m1\u00216e2\u002120e3\u002139b1\u002110b1\u002112b1\u002113b1\u002116b1\u002117m1\u00213e1\u002120m3\u00215e2\u00216b1\u002114b1\u002146m1\u00211b0\u002196b1\u002199b1\u002119m4\u00212m3\u00211i360\u00212i120\u00214i8\u002120m57\u00212m2\u00211i203\u00212i100\u00213m2\u00212i4\u00215b1\u00216m6\u00211m2\u00211i86\u00212i86\u00211m2\u00211i408\u00212i240\u00217m33\u00211m3\u00211e1\u00212b0\u00213e3\u00211m3\u00211e2\u00212b1\u00213e2\u00211m3\u00211e2\u00212b0\u00213e3\u00211m3\u00211e8\u00212b0\u00213e3\u00211m3\u00211e10\u00212b0\u00213e3\u00211m3\u00211e10\u00212b1\u00213e2\u00211m3\u00211e10\u00212b0\u00213e4\u00211m3\u00211e9\u00212b1\u00213e2\u00212b1\u00219b0\u002115m8\u00211m7\u00211m2\u00211m1\u00211e2\u00212m2\u00211i195\u00212i195\u00213i20\u002122m3\u00211s0e5BaeHAJoKdwbkPub-g-Qw\u00217e81\u002117s0e5BaeHAJoKdwbkPub-g-Qw%3A67\u002123m2\u00214b1\u002110b1\u002124m109\u00211m30\u002113m9\u00212b1\u00213b1\u00214b1\u00216i1\u00218b1\u00219b1\u002114b1\u002120b1\u002125b1\u002118m19\u00213b1\u00214b1\u00215b1\u00216b1\u00219b1\u002113b1\u002114b1\u002117b1\u002120b1\u002121b1\u002122b1\u002127m1\u00211b0\u002128b0\u002132b1\u002133m1\u00211b1\u002134b1\u002136e2\u002110m1\u00218e3\u002111m1\u00213e1\u002114m1\u00213b0\u002117b1\u002120m2\u00211e3\u00211e6\u002124b1\u002125b1\u002126b1\u002127b1\u002129b1\u002130m1\u00212b1\u002136b1\u002137b1\u002139m3\u00212m2\u00212i1\u00213i1\u002143b1\u002152b1\u002154m1\u00211b1\u002155b1\u002156m1\u00211b1\u002161m2\u00211m1\u00211e1\u002165m5\u00213m4\u00211m3\u00211m2\u00211i224\u00212i298\u002172m22\u00211m8\u00212b1\u00215b1\u00217b1\u002112m4\u00211b1\u00212b1\u00214m1\u00211e1\u00214b1\u00218m10\u00211m6\u00214m1\u00211e1\u00214m1\u00211e3\u00214m1\u00211e4\u00213sother_user_google_review_posts__and__hotel_and_vr_partner_review_posts\u00216m1\u00211e1\u00219b1\u002189b1\u002198m3\u00211b1\u00212b1\u00213b1\u0021103b1\u0021113b1\u0021114m3\u00211b1\u00212m1\u00211b1\u0021117b1\u0021122m1\u00211b1\u0021126b1\u0021127b1\u002126m4\u00212m3\u00211i80\u00212i92\u00214i8\u002134m19\u00212b1\u00213b1\u00214b1\u00216b1\u00218m6\u00211b1\u00213b1\u00214b1\u00215b1\u00216b1\u00217b1\u00219b1\u002112b1\u002114b1\u002120b1\u002123b1\u002125b1\u002126b1\u002131b1\u002137m1\u00211e81\u002147m0\u002149m10\u00213b1\u00216m2\u00211b1\u00212b1\u00217m2\u00211e3\u00212b1\u00218b1\u00219b1\u002110e2\u002161b1\u002167m5\u00217b1\u002110b1\u002114b1\u002115m1\u00211b0\u002169i761'
 
-    const url = `https://www.google.com/s?tbm=map&gs_ri=maps&suggest=p&authuser=0&hl=en&gl=us&psi=0e5BaeHAJoKdwbkPub-g-Qw.1765928662643.1&q=${query}&ech=13&pb=${encodeURIComponent(pb)}`
+    const url = 'https://www.google.com/s?tbm=map&gs_ri=maps&suggest=p&authuser=0&hl=en&gl=us&psi=0e5BaeHAJoKdwbkPub-g-Qw.1765928662643.1&q=' + query + '&ech=13&pb=' + encodeURIComponent(pb)
 
     const response = await fetch(url, {
       method: 'GET',
@@ -677,39 +694,39 @@ app.get("/api/places/search", async (c) => {
     })
 
     if (!response.ok) {
-      throw new Error(`Google Maps API error: ${response.status}`)
+      throw new Error('Google Maps API error: ' + response.status)
     }
 
     const text = await response.text()
 
     try {
-      const timestamp = Date.now()
-      const filename = `google_response_${timestamp}.json`
-      const filepath = `./logs/${filename}`
+      const timestamp = Date.now();
+      const filename = `google_response_${timestamp}.json`;
+      const filepath = `./logs/${filename}`;
       await Bun.write(filepath, JSON.stringify({
         query: prefix.trim(),
         location: location,
         rawResponse: text,
         timestamp: new Date().toISOString()
-      }, null, 2))
+      }, null, 2));
     } catch (logError) {
-      console.error('Failed to save API response log:', logError)
+      console.error('Failed to save API response log:', logError);
     }
 
-    let jsonText = text
+    let jsonText = text;
     if (text.startsWith(')]}\'')) {
-      jsonText = text.substring(4)
+      jsonText = text.substring(4);
     }
 
-    let data
+    let data;
     try {
-      data = JSON.parse(jsonText)
+      data = JSON.parse(jsonText);
     } catch (e) {
-      console.error('Raw response text:', text)
-      throw new Error('Failed to parse Google Maps response')
+      console.error('Raw response text:', text);
+      throw new Error('Failed to parse Google Maps response');
     }
 
-    const suggestions = []
+    const suggestions = [];
 
     if (Array.isArray(data) && data.length > 0) {
       const businessArrays = data[0]?.[1] || []
@@ -739,40 +756,40 @@ app.get("/api/places/search", async (c) => {
               latitude: coords?.[2] || null,
               longitude: coords?.[3] || null,
               placeId: placeId
-            })
+            });
           }
         }
       }
     }
 
-    const responseData = { suggestions, location }
+    const responseData = { suggestions, location };
 
     try {
-      const timestamp = Date.now()
-      const filename = `parsed_response_${timestamp}.json`
-      const filepath = `./logs/${filename}`
-      await Bun.write(filepath, JSON.stringify(responseData, null, 2))
+      const timestamp = Date.now();
+      const filename = `parsed_response_${timestamp}.json`;
+      const filepath = `./logs/${filename}`;
+      await Bun.write(filepath, JSON.stringify(responseData, null, 2));
     } catch (logError) {
-      console.error('Failed to save parsed response log:', logError)
+      console.error('Failed to save parsed response log:', logError);
     }
 
-    return c.json(responseData)
+    return c.json(responseData);
 
   } catch (error) {
-    console.error('Search error:', error)
+    console.error('Search error:', error);
 
-    const errorResponse = { error: 'Failed to search places', suggestions: [], details: error.message }
+    const errorResponse = { error: 'Failed to search places', suggestions: [], details: error instanceof Error ? error.message : String(error) };
 
     try {
-      const timestamp = Date.now()
-      const filename = `error_${timestamp}.json`
-      const filepath = `./logs/${filename}`
-      await Bun.write(filepath, JSON.stringify(errorResponse, null, 2))
+      const timestamp = Date.now();
+      const filename = `error_${timestamp}.json`;
+      const filepath = `./logs/${filename}`;
+      await Bun.write(filepath, JSON.stringify(errorResponse, null, 2));
     } catch (logError) {
-      console.error('Failed to save error log:', logError)
+      console.error('Failed to save error log:', logError);
     }
 
-    return c.json(errorResponse, 500)
+    return c.json(errorResponse, 500);
   }
 })
 
@@ -803,6 +820,62 @@ app.delete("/api/places/:id", (c) => {
 
   return c.json({ ok: true })
 })
+
+app.get("/api/events", (c) => {
+  const ipAddress = getClientIP(c)
+  const savedPlaces = listPlaces(ipAddress)
+
+  if (savedPlaces.length === 0) {
+    return c.json([])
+  }
+
+  const events = []
+  const today = new Date()
+  const startDate = new Date(today)
+  startDate.setFullYear(today.getFullYear() - 1)
+
+  const endDate = new Date(today)
+  endDate.setFullYear(today.getFullYear() + 1)
+
+  let previousPlaceIndex = -1
+
+  for (let date = new Date(startDate); date <= endDate; date.setDate(date.getDate() + 1)) {
+    const dateString = date.toISOString().split('T')[0]
+    const seed = dateString.split('-').reduce((acc, part) => acc + parseInt(part), 0)
+
+    let placeIndex = Math.floor(seededRandom(seed) * savedPlaces.length)
+
+    if (placeIndex === previousPlaceIndex && savedPlaces.length > 1) {
+      for (let attempt = 0; attempt < 10; attempt++) {
+        const newIndex = Math.floor(seededRandom(seed + attempt + 1) * savedPlaces.length)
+        if (newIndex !== previousPlaceIndex) {
+          placeIndex = newIndex
+          break
+        }
+      }
+    }
+
+    const selectedPlace = savedPlaces[placeIndex]
+    previousPlaceIndex = placeIndex
+
+    events.push({
+      id: `event-${dateString}`,
+      title: selectedPlace.title,
+      start: dateString,
+      allDay: true,
+      backgroundColor: 'rgba(255, 255, 255, 0.2)',
+      borderColor: 'rgba(255, 255, 255, 0.4)',
+      textColor: 'white'
+    })
+  }
+
+  return c.json(events)
+})
+
+function seededRandom(seed: number): number {
+  const x = Math.sin(seed) * 10000
+  return x - Math.floor(x)
+}
 
 app.get("/api/wishes", (c) => {
   const ipAddress = getClientIP(c)

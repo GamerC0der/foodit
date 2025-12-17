@@ -374,6 +374,33 @@ app.get('/app/1', (c) => {
         .fc-toolbar-title {
             color: white !important;
         }
+        .current-day-restaurant {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 12px;
+            padding: 15px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+            max-width: 250px;
+            z-index: 1000;
+        }
+        .restaurant-info {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .restaurant-name {
+            font-weight: 600;
+            color: white;
+            font-size: 16px;
+        }
+        .restaurant-subtitle {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.8);
+        }
     </style>
 </head>
 <body>
@@ -394,6 +421,12 @@ app.get('/app/1', (c) => {
         </div>
         <div class="main-content">
             <div id='calendar'></div>
+        </div>
+        <div class="current-day-restaurant" id="current-day-restaurant">
+            <div class="restaurant-info">
+                <div class="restaurant-name" id="current-restaurant-name">Loading...</div>
+                <div class="restaurant-subtitle" id="current-restaurant-subtitle"></div>
+            </div>
         </div>
     </div>
     <script>
@@ -520,6 +553,7 @@ app.get('/app/1', (c) => {
                     if (calendar) {
                         calendar.refetchEvents();
                     }
+                    loadCurrentDayRestaurant();
                 }
             } catch (error) {
             }
@@ -536,6 +570,7 @@ app.get('/app/1', (c) => {
                     if (calendar) {
                         calendar.refetchEvents();
                     }
+                    loadCurrentDayRestaurant();
                 } else {
                     console.error('Failed to remove place');
                 }
@@ -624,7 +659,34 @@ app.get('/app/1', (c) => {
                 }
             });
             calendar.render();
+
+            loadCurrentDayRestaurant();
         });
+
+        async function loadCurrentDayRestaurant() {
+            try {
+                const response = await fetch('/api/events');
+                const events = await response.json();
+
+                const today = new Date().toISOString().split('T')[0];
+                const todayEvent = events.find(event => event.start === today);
+
+                const nameElement = document.getElementById('current-restaurant-name');
+                const subtitleElement = document.getElementById('current-restaurant-subtitle');
+
+                if (todayEvent) {
+                    nameElement.textContent = todayEvent.title;
+                    subtitleElement.textContent = '';
+                } else {
+                    nameElement.textContent = 'No restaurant selected';
+                    subtitleElement.textContent = 'Add restaurants to get started';
+                }
+            } catch (error) {
+                console.error('Error loading current day restaurant:', error);
+                document.getElementById('current-restaurant-name').textContent = 'Error loading';
+                document.getElementById('current-restaurant-subtitle').textContent = '';
+            }
+        }
     </script>
 </body>
 </html>`)

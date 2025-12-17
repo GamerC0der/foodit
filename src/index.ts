@@ -3,6 +3,18 @@ import { createWish, deleteWish, fulfillWish, listWishes, createPlace, deletePla
 
 const app = new Hono()
 
+function getClientIP(c: any): string {
+  const forwarded = c.req.header('x-forwarded-for')
+  const realIP = c.req.header('x-real-ip')
+  const cfConnectingIP = c.req.header('cf-connecting-ip')
+
+  return forwarded?.split(',')[0]?.trim() ||
+         realIP ||
+         cfConnectingIP ||
+         c.req.header('remote-addr') ||
+         '127.0.0.1'
+}
+
 app.get('/style.css', async (c) => {
   const css = await Bun.file('./style.css')
   return c.body(await css.arrayBuffer(), {
@@ -234,7 +246,7 @@ app.get('/app/1', (c) => {
             margin-bottom: 20px;
         }
         .restaurant-search input {
-            width: 100%;
+            width: 80%;
             padding: 12px;
             border: 2px solid rgba(255, 255, 255, 0.3);
             border-radius: 8px;
@@ -287,6 +299,33 @@ app.get('/app/1', (c) => {
             font-size: 12px;
             color: rgba(255, 255, 255, 0.7);
             margin-top: 4px;
+        }
+        .saved-place-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .place-info {
+            flex: 1;
+        }
+        .remove-btn {
+            background: rgba(255, 0, 0, 0.2);
+            border: 1px solid rgba(255, 0, 0, 0.3);
+            color: white;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            margin-left: 10px;
+            flex-shrink: 0;
+        }
+        .remove-btn:hover {
+            background: rgba(255, 0, 0, 0.4);
         }
         .select-food {
             font-family: 'SF Pro Rounded';
@@ -384,6 +423,10 @@ app.get('/app/1', (c) => {
                     return [];
                 }
 
+                if (data.suggestions.length === 0) {
+                    console.log('Empty suggestions response:', data);
+                }
+
                 return data.suggestions.map((suggestion, index) => ({
                     id: index + 1,
                     name: suggestion.title,
@@ -392,7 +435,10 @@ app.get('/app/1', (c) => {
                     query: suggestion.query,
                     thumbnail: suggestion.thumbnail,
                     rating: 'N/A',
-                    price: 'N/A'
+                    price: 'N/A',
+                    latitude: suggestion.latitude,
+                    longitude: suggestion.longitude,
+                    placeId: suggestion.placeId
                 }));
             } catch (error) {
                 console.error('Search error:', error);
@@ -425,6 +471,28 @@ app.get('/app/1', (c) => {
         }
 
         async function selectRestaurant(restaurant) {
+            if (selectedRestaurant && selectedRestaurant.id === restaurant.id) {
+                selectedRestaurant = null;
+                displayRestaurants(restaurants);
+
+                try {
+                    const savedPlaces = await fetch('/api/places').then(r => r.json());
+                    const placeToRemove = savedPlaces.find(p =>
+                        p.title === restaurant.name &&
+                        p.subtitle === restaurant.subtitle
+                    );
+                    if (placeToRemove) {
+                        await fetch('/api/places/' + placeToRemove.id, {
+                            method: 'DELETE'
+                        });
+                        loadSavedPlaces();
+                    }
+                } catch (error) {
+                    console.error('Error removing place:', error);
+                }
+                return;
+            }
+
             selectedRestaurant = restaurant;
             displayRestaurants(restaurants);
 
@@ -439,7 +507,10 @@ app.get('/app/1', (c) => {
                         subtitle: restaurant.subtitle,
                         type: restaurant.type,
                         query: restaurant.query,
-                        thumbnail: restaurant.thumbnail
+                        thumbnail: restaurant.thumbnail,
+                        latitude: restaurant.latitude,
+                        longitude: restaurant.longitude,
+                        placeId: restaurant.placeId
                     })
                 });
 
@@ -447,6 +518,22 @@ app.get('/app/1', (c) => {
                     loadSavedPlaces();
                 }
             } catch (error) {
+            }
+        }
+
+        async function removePlace(placeId) {
+            try {
+                const response = await fetch('/api/places/' + placeId, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    loadSavedPlaces();
+                } else {
+                    console.error('Failed to remove place');
+                }
+            } catch (error) {
+                console.error('Error removing place:', error);
             }
         }
 
@@ -465,10 +552,13 @@ app.get('/app/1', (c) => {
 
                 savedPlaces.forEach(place => {
                     const placeItem = document.createElement('div');
-                    placeItem.className = 'restaurant-item';
+                    placeItem.className = 'restaurant-item saved-place-item';
                     placeItem.innerHTML =
-                        '<div class="restaurant-name">' + place.title + '</div>' +
-                        '<div class="restaurant-type">' + (place.subtitle || place.type) + '</div>';
+                        '<div class="place-info">' +
+                            '<div class="restaurant-name">' + place.title + '</div>' +
+                            '<div class="restaurant-type">' + (place.subtitle || place.type) + '</div>' +
+                        '</div>' +
+                        '<button class="remove-btn" onclick="removePlace(' + place.id + ')">✕</button>';
                     savedPlacesList.appendChild(placeItem);
                 });
             } catch (error) {
@@ -549,95 +639,191 @@ app.get("/api/places/search", async (c) => {
     const locationData = await getLocationByIP()
     const location = locationData.city ? `${locationData.city}, ${locationData.region || ''}`.trim() : 'Mission Viejo, CA'
 
-    const response = await fetch('https://www.yelp.com/gql/batch', {
-      method: 'POST',
+    const query = encodeURIComponent(prefix.trim())
+    const pb = '\u00212i13\u00214m12\u00211m3\u00211d21197.432321416414\u00212d-117.7255936\u00213d33.691785749999994\u00212m3\u00211f0\u00212f0\u00213f0\u00213m2\u00211i2005\u00212i1226\u00214f13.1\u00217i20\u002110b1\u002112m25\u00211m5\u002118b1\u002130b1\u002131m1\u00211b1\u002134e1\u00212m4\u00215m1\u00216e2\u002120e3\u002139b1\u002110b1\u002112b1\u002113b1\u002116b1\u002117m1\u00213e1\u002120m3\u00215e2\u00216b1\u002114b1\u002146m1\u00211b0\u002196b1\u002199b1\u002119m4\u00212m3\u00211i360\u00212i120\u00214i8\u002120m57\u00212m2\u00211i203\u00212i100\u00213m2\u00212i4\u00215b1\u00216m6\u00211m2\u00211i86\u00212i86\u00211m2\u00211i408\u00212i240\u00217m33\u00211m3\u00211e1\u00212b0\u00213e3\u00211m3\u00211e2\u00212b1\u00213e2\u00211m3\u00211e2\u00212b0\u00213e3\u00211m3\u00211e8\u00212b0\u00213e3\u00211m3\u00211e10\u00212b0\u00213e3\u00211m3\u00211e10\u00212b1\u00213e2\u00211m3\u00211e10\u00212b0\u00213e4\u00211m3\u00211e9\u00212b1\u00213e2\u00212b1\u00219b0\u002115m8\u00211m7\u00211m2\u00211m1\u00211e2\u00212m2\u00211i195\u00212i195\u00213i20\u002122m3\u00211s0e5BaeHAJoKdwbkPub-g-Qw\u00217e81\u002117s0e5BaeHAJoKdwbkPub-g-Qw%3A67\u002123m2\u00214b1\u002110b1\u002124m109\u00211m30\u002113m9\u00212b1\u00213b1\u00214b1\u00216i1\u00218b1\u00219b1\u002114b1\u002120b1\u002125b1\u002118m19\u00213b1\u00214b1\u00215b1\u00216b1\u00219b1\u002113b1\u002114b1\u002117b1\u002120b1\u002121b1\u002122b1\u002127m1\u00211b0\u002128b0\u002132b1\u002133m1\u00211b1\u002134b1\u002136e2\u002110m1\u00218e3\u002111m1\u00213e1\u002114m1\u00213b0\u002117b1\u002120m2\u00211e3\u00211e6\u002124b1\u002125b1\u002126b1\u002127b1\u002129b1\u002130m1\u00212b1\u002136b1\u002137b1\u002139m3\u00212m2\u00212i1\u00213i1\u002143b1\u002152b1\u002154m1\u00211b1\u002155b1\u002156m1\u00211b1\u002161m2\u00211m1\u00211e1\u002165m5\u00213m4\u00211m3\u00211m2\u00211i224\u00212i298\u002172m22\u00211m8\u00212b1\u00215b1\u00217b1\u002112m4\u00211b1\u00212b1\u00214m1\u00211e1\u00214b1\u00218m10\u00211m6\u00214m1\u00211e1\u00214m1\u00211e3\u00214m1\u00211e4\u00213sother_user_google_review_posts__and__hotel_and_vr_partner_review_posts\u00216m1\u00211e1\u00219b1\u002189b1\u002198m3\u00211b1\u00212b1\u00213b1\u0021103b1\u0021113b1\u0021114m3\u00211b1\u00212m1\u00211b1\u0021117b1\u0021122m1\u00211b1\u0021126b1\u0021127b1\u002126m4\u00212m3\u00211i80\u00212i92\u00214i8\u002134m19\u00212b1\u00213b1\u00214b1\u00216b1\u00218m6\u00211b1\u00213b1\u00214b1\u00215b1\u00216b1\u00217b1\u00219b1\u002112b1\u002114b1\u002120b1\u002123b1\u002125b1\u002126b1\u002131b1\u002137m1\u00211e81\u002147m0\u002149m10\u00213b1\u00216m2\u00211b1\u00212b1\u00217m2\u00211e3\u00212b1\u00218b1\u00219b1\u002110e2\u002161b1\u002167m5\u00217b1\u002110b1\u002114b1\u002115m1\u00211b0\u002169i761'
+
+    const url = `https://www.google.com/s?tbm=map&gs_ri=maps&suggest=p&authuser=0&hl=en&gl=us&psi=0e5BaeHAJoKdwbkPub-g-Qw.1765928662643.1&q=${query}&ech=13&pb=${encodeURIComponent(pb)}`
+
+    const response = await fetch(url, {
+      method: 'GET',
       headers: {
         'accept': '*/*',
-        'content-type': 'application/json',
-        'origin': 'https://www.yelp.com',
-        'referer': 'https://www.yelp.com/',
-        'x-apollo-operation-name': 'GetSuggestions',
-      },
-      body: JSON.stringify([
-        {
-          operationName: 'GetSuggestions',
-          variables: {
-            capabilities: [],
-            prefix: prefix.trim(),
-            location: location
-          },
-          extensions: {
-            operationType: 'query',
-            documentId: '109c8a7e92ee9b481268cf55e8e21cc8ce753f8bf6453ad42ca7c1652ea0535f'
-          }
-        }
-      ])
+        'accept-language': 'en-US,en;q=0.9',
+        'cookie': 'AEC=AaJma5sVOoaFMQzegcPdkKnohO_lORQPd4PzlWe5y60pSABLcqeBNZ1IFj8; __Secure-BUCKET=CEc; __Secure-STRP=AD6Dogsc_9MJ7r3Z_dSD3_7vQ6RfhKQhdIwt15_bKmoDow4MyTWUdjFHA_Yb7BKeg_Wl6zasE5HnEDEVZbrMNN2Q86La7UPQFHaJ; NID=527=tqP1-J4TYy3MkdTqw2-utnykEVxwofukWvhti4t3IVmvvxzKUDbEnkzFPu0mbwiqLNbUNfSWrBwDffBzy1u_XVplgnwDX3SA6756qsmN24NYzJdAS8IXxu6mdvHf9p3p04ZM93el3Lk8h1HVQPVdwTVcFWo8wO7AIX3ku4zGCDXwp9W75NmAuSpKbqZI6feDBjkRp49THsLEkqK_zpc368lzwS39-SV9SCWoxRE',
+        'downlink': '10',
+        'priority': 'u=1, i',
+        'referer': 'https://www.google.com/',
+        'rtt': '100',
+        'sec-ch-ua': '"Google Chrome";v="143", "Chromium";v="143", "Not A(Brand";v="24"',
+        'sec-ch-ua-mobile': '?0',
+        'sec-ch-ua-platform': '"macOS"',
+        'sec-ch-ua-arch': 'x86',
+        'sec-ch-ua-bitness': '64',
+        'sec-ch-ua-full-version-list': '"Google Chrome";v="143.0.0.0", "Chromium";v="143.0.0.0", "Not A(Brand";v="24.0.0.0"',
+        'sec-ch-ua-model': '""',
+        'sec-ch-device-memory': '8',
+        'sec-ch-ua-platform-version': '14.5.0',
+        'sec-fetch-dest': 'empty',
+        'sec-fetch-mode': 'cors',
+        'sec-fetch-site': 'same-origin',
+        'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36',
+        'x-browser-channel': 'stable',
+        'x-browser-copyright': 'Copyright 2025 Google LLC. All Rights reserved.',
+        'x-browser-validation': 'AUXUCdutEJ+6gl6bYtz7E2kgIT4=',
+        'x-browser-year': '2025',
+        'x-client-data': 'CKy1yQEIh7bJAQiitskBCKmdygEIlfjKAQiVocsBCIagzQEIlozPAQjLkc8BCLWizwEI1aPPAQiTpM8BCJOlzwEImqXPARjshc8BGLKGzwEY76LPAQ==',
+        'x-maps-diversion-context-bin': 'CAE='
+      }
     })
 
     if (!response.ok) {
-      throw new Error(`Yelp API error: ${response.status}`)
+      throw new Error(`Google Maps API error: ${response.status}`)
     }
 
-    const data = await response.json()
+    const text = await response.text()
 
-    const suggestions = data[0]?.data?.searchSuggestFrontend?.prefetchSuggestions?.suggestions || []
+    try {
+      const timestamp = Date.now()
+      const filename = `google_response_${timestamp}.json`
+      const filepath = `./logs/${filename}`
+      await Bun.write(filepath, JSON.stringify({
+        query: prefix.trim(),
+        location: location,
+        rawResponse: text,
+        timestamp: new Date().toISOString()
+      }, null, 2))
+    } catch (logError) {
+      console.error('Failed to save API response log:', logError)
+    }
 
-    const transformedSuggestions = suggestions
-      .filter((suggestion: any) => suggestion.type === 'business')
-      .map((suggestion: any) => ({
-        title: suggestion.title,
-        subtitle: suggestion.subtitle,
-        type: suggestion.type,
-        query: suggestion.query,
-        thumbnail: suggestion.thumbnail?.key || null,
-        redirectUrl: suggestion.redirectUrl
-      }))
+    let jsonText = text
+    if (text.startsWith(')]}\'')) {
+      jsonText = text.substring(4)
+    }
 
-    return c.json({ suggestions: transformedSuggestions, location })
+    let data
+    try {
+      data = JSON.parse(jsonText)
+    } catch (e) {
+      console.error('Raw response text:', text)
+      throw new Error('Failed to parse Google Maps response')
+    }
+
+    const suggestions = []
+
+    if (Array.isArray(data) && data.length > 0) {
+      const businessArrays = data[0]?.[1] || []
+
+      for (const businessArray of businessArrays) {
+        if (businessArray && businessArray[22]) {
+          const businessInfo = businessArray[22]
+
+          const fullName = Array.isArray(businessInfo[0]) ? businessInfo[0][0] : businessInfo[0] || 'Unknown'
+          const address = Array.isArray(businessInfo[2]) ? businessInfo[2][0] : businessInfo[2] || ''
+          const coords = businessInfo[10]
+          const placeId = businessInfo[26] || businessInfo[27] || ''
+
+          const name = typeof fullName === 'string' ? fullName.split(',')[0].trim() : 'Unknown'
+
+          const hasAddress = address && address.length > 0
+          const hasCoords = coords && typeof coords[2] === 'number' && typeof coords[3] === 'number'
+          const isSeeLocations = address === 'See locations' || (Array.isArray(address) && address[0] === 'See locations')
+
+          if (fullName && (hasAddress || hasCoords) && !isSeeLocations) {
+            suggestions.push({
+              title: name,
+              subtitle: address,
+              type: 'business',
+              query: fullName,
+              thumbnail: null,
+              latitude: coords?.[2] || null,
+              longitude: coords?.[3] || null,
+              placeId: placeId
+            })
+          }
+        }
+      }
+    }
+
+    const responseData = { suggestions, location }
+
+    try {
+      const timestamp = Date.now()
+      const filename = `parsed_response_${timestamp}.json`
+      const filepath = `./logs/${filename}`
+      await Bun.write(filepath, JSON.stringify(responseData, null, 2))
+    } catch (logError) {
+      console.error('Failed to save parsed response log:', logError)
+    }
+
+    return c.json(responseData)
 
   } catch (error) {
-    return c.json({ error: 'Failed to search places', suggestions: [] }, 500)
+    console.error('Search error:', error)
+
+    const errorResponse = { error: 'Failed to search places', suggestions: [], details: error.message }
+
+    try {
+      const timestamp = Date.now()
+      const filename = `error_${timestamp}.json`
+      const filepath = `./logs/${filename}`
+      await Bun.write(filepath, JSON.stringify(errorResponse, null, 2))
+    } catch (logError) {
+      console.error('Failed to save error log:', logError)
+    }
+
+    return c.json(errorResponse, 500)
   }
 })
 
-app.get("/api/places", (c) => c.json(listPlaces()))
+app.get("/api/places", (c) => {
+  const ipAddress = getClientIP(c)
+  return c.json(listPlaces(ipAddress))
+})
 
 app.post("/api/places", async (c) => {
   const body = await c.req.json().catch(() => null)
-  const { title, subtitle, type, query, thumbnail } = body || {}
+  const { title, subtitle, type, query, thumbnail, latitude, longitude, placeId } = body || {}
+  const ipAddress = getClientIP(c)
 
   if (!title || !type || !query) {
     return c.json({ error: "title, type, and query are required" }, 400)
   }
 
-  return c.json(createPlace(title, subtitle, type, query, thumbnail), 201)
+  return c.json(createPlace(title, subtitle, type, query, thumbnail, latitude, longitude, placeId, ipAddress), 201)
 })
 
 app.delete("/api/places/:id", (c) => {
   const id = Number(c.req.param("id"))
+  const ipAddress = getClientIP(c)
   if (!Number.isFinite(id)) return c.json({ error: "bad id" }, 400)
 
-  const res = deletePlace(id)
+  const res = deletePlace(id, ipAddress)
   if (res.changes === 0) return c.json({ error: "not found" }, 404)
 
   return c.json({ ok: true })
 })
 
-app.get("/api/wishes", (c) => c.json(listWishes()))
+app.get("/api/wishes", (c) => {
+  const ipAddress = getClientIP(c)
+  return c.json(listWishes(ipAddress))
+})
 
 app.post("/api/wishes", async (c) => {
   const body = await c.req.json().catch(() => null)
   const item = (body?.item ?? "").toString().trim()
+  const ipAddress = getClientIP(c)
   if (!item) return c.json({ error: "item is required" }, 400)
 
-  return c.json(createWish(item), 201)
+  return c.json(createWish(item, ipAddress), 201)
 })
 
 app.patch("/api/wishes/:id/fulfill", (c) => {
   const id = Number(c.req.param("id"))
+  const ipAddress = getClientIP(c)
   if (!Number.isFinite(id)) return c.json({ error: "bad id" }, 400)
 
-  const res = fulfillWish(id)
+  const res = fulfillWish(id, ipAddress)
   if (res.changes === 0) return c.json({ error: "not found" }, 404)
 
   return c.json({ ok: true })
@@ -645,9 +831,10 @@ app.patch("/api/wishes/:id/fulfill", (c) => {
 
 app.delete("/api/wishes/:id", (c) => {
   const id = Number(c.req.param("id"))
+  const ipAddress = getClientIP(c)
   if (!Number.isFinite(id)) return c.json({ error: "bad id" }, 400)
 
-  const res = deleteWish(id)
+  const res = deleteWish(id, ipAddress)
   if (res.changes === 0) return c.json({ error: "not found" }, 404)
 
   return c.json({ ok: true })

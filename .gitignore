@@ -1,3 +1,4 @@
 .env
 my.db
 node_modules/
+logs/

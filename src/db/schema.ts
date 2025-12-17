@@ -5,6 +5,7 @@ export const wishes = sqliteTable("wishes", {
   item: text("item").notNull(),
   fulfilled: integer("fulfilled").notNull().default(0),
   createdAt: integer("created_at").notNull(),
+  ipAddress: text("ip_address").notNull(),
 })
 
 export const places = sqliteTable("places", {
@@ -14,5 +15,9 @@ export const places = sqliteTable("places", {
   type: text("type").notNull(),
   query: text("query").notNull(),
   thumbnail: text("thumbnail"),
+  latitude: integer("latitude"),
+  longitude: integer("longitude"),
+  placeId: text("place_id"),
   createdAt: integer("created_at").notNull(),
+  ipAddress: text("ip_address").notNull(),
 })
